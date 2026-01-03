@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: linkedin-snapshot-api
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: MAILERLITE_API_KEY
+        sync: false
+      - key: MAILERLITE_GROUP_ID
+        sync: false
