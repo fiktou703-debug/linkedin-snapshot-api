@@ -1,6 +1,5 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import groq
 import os
 import json
 from datetime import datetime
@@ -9,8 +8,8 @@ import requests
 app = Flask(__name__)
 CORS(app)
 
-# Groq Client
-groq_client = groq.Groq(api_key=os.environ.get('GROQ_API_KEY'))
+# Groq API Key
+GROQ_API_KEY = os.environ.get('GROQ_API_KEY')
 
 # MailerLite API
 MAILERLITE_API_KEY = os.environ.get('MAILERLITE_API_KEY')
@@ -51,6 +50,10 @@ def analyze():
 def analyze_with_groq(headline, about, goal):
     """تحليل الملف باستخدام Groq"""
     
+    # Create Groq client inside function
+    from groq import Groq
+    client = Groq(api_key=GROQ_API_KEY)
+    
     prompt = f"""أنت خبير علم نفس LinkedIn. حلل الملف التالي:
 
 **Headline:** {headline}
@@ -89,7 +92,7 @@ def analyze_with_groq(headline, about, goal):
   }}
 }}"""
 
-    response = groq_client.chat.completions.create(
+    response = client.chat.completions.create(
         model="llama-3.1-70b-versatile",
         messages=[
             {"role": "system", "content": "أنت خبير علم نفسي LinkedIn. أجب بـ JSON فقط."},
