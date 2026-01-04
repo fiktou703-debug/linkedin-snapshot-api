@@ -63,7 +63,7 @@ def analyze_with_groq(headline, about, goal):
     
     try:
         # Hugging Face Inference API endpoint
-        API_URL = "https://api-inference.huggingface.co/models/meta-llama/Llama-3.2-3B-Instruct"
+        API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2"
         
         headers = {
             "Authorization": f"Bearer {HF_API_KEY}",
@@ -197,3 +197,4 @@ def log_analysis(data, analysis):
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
+
