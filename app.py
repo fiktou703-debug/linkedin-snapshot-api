@@ -43,18 +43,30 @@ def analyze():
         
         return jsonify(analysis), 200
         
+    except ValueError as e:
+        # Specific errors (API key, parsing, etc.)
+        print(f"ValueError: {str(e)}")
+        return jsonify({'error': str(e)}), 500
     except Exception as e:
+        # Generic errors
         print(f"Error: {str(e)}")
-        return jsonify({'error': 'Analysis failed'}), 500
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'Analysis failed: {str(e)}'}), 500
 
 def analyze_with_groq(headline, about, goal):
     """تحليل الملف باستخدام Groq"""
     
-    # Create Groq client inside function
-    from groq import Groq
-    client = Groq(api_key=GROQ_API_KEY)
+    # Check if API key exists
+    if not GROQ_API_KEY:
+        raise ValueError("Groq API Key not configured. Please add GROQ_API_KEY to environment variables.")
     
-    prompt = f"""أنت خبير علم نفس LinkedIn. حلل الملف التالي:
+    try:
+        # Create Groq client inside function
+        from groq import Groq
+        client = Groq(api_key=GROQ_API_KEY)
+        
+        prompt = f"""أنت خبير علم نفس LinkedIn. حلل الملف التالي:
 
 **Headline:** {headline}
 **About:** {about}
@@ -92,19 +104,28 @@ def analyze_with_groq(headline, about, goal):
   }}
 }}"""
 
-    response = client.chat.completions.create(
-        model="llama-3.1-70b-versatile",
-        messages=[
-            {"role": "system", "content": "أنت خبير علم نفسي LinkedIn. أجب بـ JSON فقط."},
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0.3,
-        max_tokens=800
-    )
-    
-    # Parse JSON response
-    result = json.loads(response.choices[0].message.content)
-    return result
+        response = client.chat.completions.create(
+            model="llama-3.1-70b-versatile",
+            messages=[
+                {"role": "system", "content": "أنت خبير علم نفسي LinkedIn. أجب بـ JSON فقط."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.3,
+            max_tokens=800
+        )
+        
+        # Parse JSON response
+        content = response.choices[0].message.content
+        result = json.loads(content)
+        return result
+        
+    except json.JSONDecodeError as e:
+        print(f"JSON Parse Error: {str(e)}")
+        print(f"Response content: {content}")
+        raise ValueError(f"Failed to parse AI response: {str(e)}")
+    except Exception as e:
+        print(f"Groq API Error: {str(e)}")
+        raise ValueError(f"AI analysis failed: {str(e)}")
 
 def save_to_mailerlite(email, name, analysis):
     """حفظ Email في MailerLite"""
