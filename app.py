@@ -8,8 +8,8 @@ import requests
 app = Flask(__name__)
 CORS(app)
 
-# Groq API Key
-GROQ_API_KEY = os.environ.get('GROQ_API_KEY')
+# Hugging Face API Key
+HF_API_KEY = os.environ.get('HF_API_KEY')
 
 # MailerLite API
 MAILERLITE_API_KEY = os.environ.get('MAILERLITE_API_KEY')
@@ -55,16 +55,20 @@ def analyze():
         return jsonify({'error': f'Analysis failed: {str(e)}'}), 500
 
 def analyze_with_groq(headline, about, goal):
-    """تحليل الملف باستخدام Groq"""
+    """تحليل الملف باستخدام Hugging Face"""
     
     # Check if API key exists
-    if not GROQ_API_KEY:
-        raise ValueError("Groq API Key not configured. Please add GROQ_API_KEY to environment variables.")
+    if not HF_API_KEY:
+        raise ValueError("Hugging Face API Key not configured. Please add HF_API_KEY to environment variables.")
     
     try:
-        # Create Groq client inside function
-        from groq import Groq
-        client = Groq(api_key=GROQ_API_KEY)
+        # Hugging Face Inference API endpoint
+        API_URL = "https://api-inference.huggingface.co/models/meta-llama/Llama-3.2-3B-Instruct"
+        
+        headers = {
+            "Authorization": f"Bearer {HF_API_KEY}",
+            "Content-Type": "application/json"
+        }
         
         prompt = f"""أنت خبير علم نفس LinkedIn. حلل الملف التالي:
 
@@ -94,7 +98,7 @@ def analyze_with_groq(headline, about, goal):
 
 أجب بـ JSON فقط، بالعربية:
 {{
-  "score": 0-100,
+  "score": 45,
   "current_perception": "...",
   "desired_perception": "...",
   "fatal_error": "...",
@@ -104,27 +108,45 @@ def analyze_with_groq(headline, about, goal):
   }}
 }}"""
 
-        response = client.chat.completions.create(
-            model="llama-3.1-70b-versatile",
-            messages=[
-                {"role": "system", "content": "أنت خبير علم نفسي LinkedIn. أجب بـ JSON فقط."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.3,
-            max_tokens=800
-        )
+        payload = {
+            "inputs": prompt,
+            "parameters": {
+                "max_new_tokens": 800,
+                "temperature": 0.3,
+                "return_full_text": False
+            }
+        }
         
-        # Parse JSON response
-        content = response.choices[0].message.content
+        response = requests.post(API_URL, headers=headers, json=payload, timeout=30)
+        response.raise_for_status()
+        
+        result_text = response.json()
+        
+        # Extract JSON from response
+        if isinstance(result_text, list) and len(result_text) > 0:
+            content = result_text[0].get('generated_text', '')
+        else:
+            content = str(result_text)
+        
+        # Try to parse JSON
+        # Sometimes the model returns text before/after JSON, so we extract it
+        import re
+        json_match = re.search(r'\{[\s\S]*\}', content)
+        if json_match:
+            content = json_match.group(0)
+        
         result = json.loads(content)
         return result
         
+    except requests.exceptions.RequestException as e:
+        print(f"Hugging Face API Error: {str(e)}")
+        raise ValueError(f"AI analysis failed: {str(e)}")
     except json.JSONDecodeError as e:
         print(f"JSON Parse Error: {str(e)}")
         print(f"Response content: {content}")
         raise ValueError(f"Failed to parse AI response: {str(e)}")
     except Exception as e:
-        print(f"Groq API Error: {str(e)}")
+        print(f"Hugging Face API Error: {str(e)}")
         raise ValueError(f"AI analysis failed: {str(e)}")
 
 def save_to_mailerlite(email, name, analysis):
